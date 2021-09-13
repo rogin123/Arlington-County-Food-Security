@@ -8,9 +8,12 @@ library(rjson)
 #https://mcdc.missouri.edu/applications/geocorr2014.html
 centroids_all <- read_csv(here("routing/data", "geocorr_centroids.csv")) %>%
   filter(tract != "Tract") %>%
-  st_as_sf(coords = c("intptlon", "intptlat"), crs = 4269) %>%
+  st_as_sf(coords = c("intptlon", "intptlat"), crs = 4269, remove = FALSE) %>%
   mutate(tract_str = str_replace(tract, "[.]", ""),
-    geoid = paste0(county, tract_str))
+    geoid = paste0(county, tract_str)) %>%
+  rename(c("lon" = "intptlon", "lat" = "intptlat")) %>%
+  mutate(lat = as.numeric(lat),
+         lon = as.numeric(lon))
 
 
 centroids_arl <- centroids_all %>%
@@ -23,6 +26,11 @@ route_pairs <- st_join(centroids_arl,
                        #30 miles is 48,280 meters
                        dist = 25000,
                        suffix = c("_start", "_end"))
+
+route_out <- route_pairs 
+st_geometry(route_out) <- NULL
+write_csv(route_out, here("routing/data", "route_pairs.csv"))
+  
 
 va <- counties(state = "51")
 md <- counties(state = "24")

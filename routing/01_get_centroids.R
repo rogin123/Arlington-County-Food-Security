@@ -6,6 +6,7 @@ library(urbnmapr)
 library(rjson)
 
 #https://mcdc.missouri.edu/applications/geocorr2014.html
+#run for DC, MD, VA - select tracts as source and target geographies
 centroids_all <- read_csv(here("routing/data", "geocorr_centroids.csv")) %>%
   filter(tract != "Tract") %>%
   st_as_sf(coords = c("intptlon", "intptlat"), crs = 4269, remove = FALSE) %>%

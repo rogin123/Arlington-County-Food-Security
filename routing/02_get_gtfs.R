@@ -19,6 +19,11 @@ get_feed_date <- function(agency_name, feed_key, api_key, date){
   feed_version_key <- NULL
   while (!is.null(feed_list_url) & is.null(feed_version_key)){
     r <- GET(feed_list_url)
+    
+    if (status_code(r) != 200){
+      Sys.sleep(61)
+      r <- GET(feed_list_url)
+    }
     content <- content(r)
     feed_versions <- content$feed_versions
     for (fv in feed_versions){
@@ -42,18 +47,18 @@ get_feed_date <- function(agency_name, feed_key, api_key, date){
     
   }
   
-  
-  
 }
 
 
 #Fairfax CUE
 #Charles County
 
-# transit_agencies <- tribble(
-#   ~agency_name, ~feed_key,
-#   "alexandria_dash", "f-dqchv-alexandriatransitcompanydash",
-#   "fairfax_connector", "f-dqcj-fairfaxconnector")
+transit_agencies <- tribble(
+  ~agency_name, ~feed_key,
+"wmata_rail", "f-dqc-wmata~rail",
+"bethesda_circulator", "f-bethesdacirculator~md~us",
+"arlington_transit", "f-dqcjj-arlingtontransit"
+)
 
 transit_agencies <- tribble(
   ~agency_name, ~feed_key,
@@ -70,6 +75,8 @@ transit_agencies <- tribble(
   "bethesda_circulator", "f-bethesdacirculator~md~us",
   "arlington_transit", "f-dqcjj-arlingtontransit"
 )
+
+
 
 map2(transit_agencies$agency_name, 
      transit_agencies$feed_key, 

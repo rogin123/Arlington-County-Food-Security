@@ -51,6 +51,57 @@ create_graph_setup_otp <- function(path_data, path_otp, memory){
   return(otpcon)
 }
 
+create_otp_plan <-- function(mode, from_place, to_places, from_id, departure_time){
+  # Conducts batch routing for provided transportation mode transportation mode
+  
+  #Identifies number of cores for batch routing
+  n_cores = detectCores() - 1
+  
+  routes <- tryCatch(
+    {routes <- otp_plan(otp_connection, 
+                        fromPlace = from_place, 
+                        toPlace = to_places,
+                        fromID = from_id,
+                        toID = to_places$tract_str_end,
+                        mode = mode,
+                        get_geometry = FALSE, #can change to true if want geometry of driving route
+                        numItineraries = 1, #only returns single fastest itinerary
+                        ncores = n_cores,
+                        date_time = departure_time)},
+    error = function(err){
+      routes <- tibble(
+        duration = NA_real_, 
+        distance = NA_real_, 
+        fromPlace = from_id, 
+        toPlace = NA_character_
+      )
+      return(routes)
+    }
+  ) %>%
+    mutate(mode = mode,
+           departure_time = departure_time)
+  
+  
+  if (!is.na(routes)){
+    routes_out <- routes %>%
+      select(duration, distance, fromPlace, toPlace, mode, departure_time)
+  } else {
+    # if no routes can be found for a given start point, will return one row with the following:
+    routes_out <- tibble(
+      duration = NA_real_, 
+      distance = NA_real_, 
+      fromPlace = from_id, 
+      toPlace = NA_character_,
+      mode = mode,
+      departure_time = departure_time
+    )
+  }
+  
+  
+  return(routes_out)
+}
+
+
 batch_route <- function(df, 
                         otp_connection = otpcon, 
                         departure_time = dt){
@@ -94,87 +145,24 @@ batch_route <- function(df,
   #OTP wants coordinates as longitude, latitude
   from_place <- c(from_lon, from_lat)
   
-  #Identifies number of cores for batch routing
-  n_cores = detectCores() - 1
   
-  # Conducts batch routing, default is only car as transportation mode
-  car_routes <- tryCatch(
-    {routes <- otp_plan(otp_connection, 
-                        fromPlace = from_place, 
-                        toPlace = to_places,
-                        fromID = from_id,
-                        toID = to_places$tract_str_end,
-                        mode = "CAR",
-                        get_geometry = FALSE, #can change to true if want geometry of driving route
-                        numItineraries = 1, #only returns single fastest itinerary
-                        ncores = n_cores,
-                        date_time = departure_time)},
-    error = function(err){
-      routes <- tibble(
-        duration = NA_real_, 
-        distance = NA_real_, 
-        fromPlace = from_id, 
-        toPlace = NA_character_
-      )
-      return(routes)
-    }
-  ) %>%
-    mutate(mode = "car",
-           time = departure_time)
-  
-  transit_routes <- tryCatch(
-    {routes <- otp_plan(otp_connection, 
-                        fromPlace = from_place, 
-                        toPlace = to_places,
-                        fromID = from_id,
-                        toID = to_places$tract_str_end,
-                        mode = "TRANSIT",
-                        get_geometry = FALSE, #can change to true if want geometry of driving route
-                        numItineraries = 1, #only returns single fastest itinerary
-                        ncores = n_cores,
-                        date_time = departure_time)},
-    error = function(err){
-      routes <- tibble(
-        duration = NA_real_, 
-        distance = NA_real_, 
-        fromPlace = from_id, 
-        toPlace = NA_character_
-      )
-      return(routes)
-    }
-  ) %>% 
-    mutate(mode = "transit",
-           time = departure_time)
-  
-  #TODO: convert to map_dfr with mode as an argument
-  all_routes <- rbind(car_routes, transit_routes)
-  
-  if (!is.na(all_routes)){
-    routes_out <- all_routes %>%
-      select(duration, distance, fromPlace, toPlace, mode, departure_time)
-  } else {
-    # if no routes can be found for a given start point, will return one row with the following:
-    routes_out <- tibble(
-      duration = NA_real_, 
-      distance = NA_real_, 
-      fromPlace = from_id, 
-      toPlace = NA_character_,
-      mode = NA_character_,
-      departure_time = departure_time
-    )
-  }
+  modes <- c("CAR", "TRANSIT")
+  all_routes <- map_dfr(modes, 
+                        create_otp_plan,
+                        from_place = from_place, 
+                        to_places = to_places, 
+                        from_id = from_id,
+                        departure_time = departure_time)
   
   
-  return(routes_out)
+  
+  return(all_routes)
 }
 
 route_date <- function(df, otpcon, date){
-  #set departure time as 8am on June 15, 2019 as a placeholder
-  #feel free to change though it likely won't matter  for driving
-  #except for edge cases of roads closed at certain times
+  #date (str):Form YYYY-MM-DD hh:mm:ss, e.g. "2019-06-15 8:00:00"
   
-  # TODO: modify to accept date as parameter
-  dt <- as.POSIXct(strptime("2019-06-15 8:00:00", "%Y-%m-%d %H:%M:%S"), tz = "America/New_York")
+  dt <- as.POSIXct(strptime(date, "%Y-%m-%d %H:%M:%S"), tz = "America/New_York")
   
   #split dataframe into a list of dataframes on county
   df_list <- split(df, f = df$tract_str_start)
@@ -187,6 +175,7 @@ route_date <- function(df, otpcon, date){
 }
 
 calculate_routes <- function(date, df) {
+  #date (str):Form YYYY-MM-DD hh:mm:ss, e.g. "2019-06-15 8:00:00"
   
   ## Create folder for OTP and its Data + Download OTP ##
   

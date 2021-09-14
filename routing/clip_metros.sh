@@ -19,18 +19,18 @@ sudo docker exec java apt-get install osmctools -y
 # plus half degree buffer on each side to determine bounding box for each
 
 #create bucket
-bucket='arlington-county-food-security'
-sudo docker exec java wget "http://download.geofabrik.de/north-america/us-latest.osm.pbf"
+bucket='bipoc-arts-db'
+sudo docker exec java wget "http://download.geofabrik.de/north-america/us-south-latest.osm.pbf"
 
 
-n=$(jq -r ".bounding.n" osm_bounds.json)
-s=$(jq -r ".bounding.s" osm_bounds.json)
-e=$(jq -r ".bounding.e" osm_bounds.json)
-w=$(jq -r ".bounding.w" osm_bounds.json)
+n=$(jq -r ".n" osm_bounds.json)
+s=$(jq -r ".s" osm_bounds.json)
+e=$(jq -r ".e" osm_bounds.json)
+w=$(jq -r ".w" osm_bounds.json)
 
-sudo docker exec java osmconvert us-latest.osm.pbf -b=${e},${s},${w},${n} --complete-ways -o=data/osm_bounds.pbf
+sudo docker exec java osmconvert us-south-latest.osm.pbf -b=${e},${s},${w},${n} --complete-ways -o=data/osm_bounds.pbf
 # Send to S3
-sudo aws s3 cp pbf/osm_bounds.pbf s3://${bucket}/util-files/geo-data/ --acl bucket-owner-full-control
+sudo aws s3 cp data/pbf/osm_bounds.pbf s3://${bucket}/util-files/geo-data/ --acl bucket-owner-full-control
 
 
 

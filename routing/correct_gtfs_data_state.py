@@ -10,20 +10,15 @@ import os
 import numpy as np
 
 # Set defaults
-
+#os.mkdir("data/gtfs-clean")
 agency_count = 0
 pd.options.mode.chained_assignment = None  # Turn off set with copy warnings
 
-# Read in metadata
-
-cur_date = dt.datetime.today().strftime('%Y_%m_%d')
-with open('gtfs-raw/gtfs_metadata_{}.json'.format(cur_date), 'r') as f:
-    data = json.load(f)
 
 # Check GTFS files for errors and fix them
 
 
-def unzip_to_file(zfile, bpath, full_path, stop_dataset=None, transfer_dataset=None, agency_dataset=None, trips_dataset=None, caldate_dataset=None, routes_dataset=None, st_dataset=None):
+def unzip_to_file(zfile, bpath, full_path, stop_dataset=None, transfer_dataset=None, agency_dataset=None, trips_dataset=None, caldate_dataset=None, routes_dataset=None, st_dataset=None, pathways_dataset=None):
     # Description: Unzips a zip file to folder, flattens file format, and zips back up
     #   Optional arguments to remove lines from file that cause errors
     # Modified from https://stackoverflow.com/questions/4917284/extract-files-from-zip-without-keeping-the-structure-using-python-zipfile
@@ -96,6 +91,10 @@ def unzip_to_file(zfile, bpath, full_path, stop_dataset=None, transfer_dataset=N
         elif filename == "routes.txt" and routes_dataset is not None:  # Fix duplicates in routes.txt
             routes_dataset = routes_dataset.drop_duplicates('route_id')
             routes_dataset.to_csv('routes.txt', index=False)
+        elif filename == "pathways.txt" and pathways_dataset is not None:
+            path_type, pathways_dataset_clean = fix_pathways(pathways_dataset)
+            if path_type:
+                pathways_dataset_clean.to_csv('pathways.txt', index=False)
         else:  # If we're not replacing lines, just copy the file directly
             with open(filename, "wb") as target:
                 shutil.copyfileobj(source, target)
@@ -159,6 +158,15 @@ def clean_zipfile(path):
             print("  Fixing transfer type field in transfers")
             unzip_to_file(archive, path0, path, transfer_dataset=tr_dset)
         transfer_data.close()
+    # fix error that can occur in pathways.txt where OTP looks for required pathways_type buy file names pathways_mdoe
+    archive = zipfile.ZipFile(path)
+    if 'pathways.txt' in archive.namelist(): #pathways.txt is optional, and does not have to appear in all GTFS feeds
+        pathways_data = archive.open('pathways.txt')
+        paths = pd.read_csv(pathways_data)
+        paths.columns = [x.strip() for x in paths.columns]
+        if "path_type" not in paths.columns:
+            unzip_to_file(archive, path0, path, pathways_dataset=paths)
+        pathways_data.close()
     # Fix error that occurs rarely in agency.txt, required fields agency_name,agency_url,agency_timezone missing, extra characters in final line (removed automatically by pandas)
     archive = zipfile.ZipFile(path)
     agency_data = archive.open('agency.txt')
@@ -259,6 +267,14 @@ def interp_stop_times(sdata, fname):
         sdata["departure_time"].loc[(sdata["stop_sequence"] == max_cur) & (sdata["trip_id"] == id)] = mval
     sdata.to_csv(fname, index=False)
 
+def fix_pathways(paths):
+    if "pathway_mode" in paths.columns:
+        paths.rename(columns = {"pathway_mode": "pathway_type"}, inplace = True)
+    
+    if "pathway_type" in paths.columns:
+        return True, paths
+    else:
+        return False, None
 
 def check_transfers(trans_data):
     # Description: For transfer files that do not have values for transfer_type, add a default value of 0
@@ -349,23 +365,26 @@ print()
 print("Correcting GTFS Errors")
 print()
 
+gtfs_path = "data/gtfs-raw"
+data = os.listdir(gtfs_path)
+data = ['/'.join([gtfs_path, x]) for x in data]
+
 for i in range(len(data)):
-    print(data[i]["name"])
-    if data[i]["dl_url"] is not None:
-        archive = clean_zipfile(data[i]["dl_name"])
-        # Check if location_type is in stops.txt
-        stop_data = archive.open('stops.txt')
-        vars = stop_data.readline().decode('utf-8').replace('\n', '').split(',')
-        if 'location_type' in vars:
-            # Check to make sure all values of location_type in stop_times.txt == 0
-            stop_times_data = archive.open('stop_times.txt')
-            stop_df = pd.read_csv(stop_times_data)
-            if 'location_type' in stop_df.columns:
-                print()
-                print("!!!Error that may cause build to fail!!!")
-                print(data[i]["name"], stop_df["location_type"].unique())
-                print("!!!Error that may cause build to fail!!!")
-                print()
+    print(data[i])
+    archive = clean_zipfile(data[i])
+    # Check if location_type is in stops.txt
+    stop_data = archive.open('stops.txt')
+    vars = stop_data.readline().decode('utf-8').replace('\n', '').split(',')
+    if 'location_type' in vars:
+        # Check to make sure all values of location_type in stop_times.txt == 0
+        stop_times_data = archive.open('stop_times.txt')
+        stop_df = pd.read_csv(stop_times_data)
+        if 'location_type' in stop_df.columns:
+            print()
+            print("!!!Error that may cause build to fail!!!")
+            print(data[i]["name"], stop_df["location_type"].unique())
+            print("!!!Error that may cause build to fail!!!")
+            print()
 
 print()
 print("Finished! Remember to sync the subdirectory to S3, and move the metadata file as well")

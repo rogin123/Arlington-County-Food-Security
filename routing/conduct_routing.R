@@ -3,6 +3,7 @@ library(tidyverse)
 library(here)
 library(parallel)
 library(sf)
+library(furrr)
 
 make_config <- function(path_data){
   # Make router config with default parameters. You can edit these parameters if desired as described in 
@@ -51,7 +52,7 @@ create_graph_setup_otp <- function(path_data, path_otp, memory){
   return(otpcon)
 }
 
-create_otp_plan <-- function(mode, from_place, to_places, from_id, departure_time){
+create_otp_plan <- function(mode, from_place, to_places, from_id, departure_time){
   # Conducts batch routing for provided transportation mode transportation mode
   
   #Identifies number of cores for batch routing
@@ -77,14 +78,14 @@ create_otp_plan <-- function(mode, from_place, to_places, from_id, departure_tim
       )
       return(routes)
     }
-  ) %>%
-    mutate(mode = mode,
-           departure_time = departure_time)
+  ) 
   
   
   if (!is.na(routes)){
     routes_out <- routes %>%
-      select(duration, distance, fromPlace, toPlace, mode, departure_time)
+      select(duration, distance, fromPlace, toPlace) %>%
+      mutate(mode = mode,
+             departure_time = departure_time)
   } else {
     # if no routes can be found for a given start point, will return one row with the following:
     routes_out <- tibble(
@@ -123,7 +124,7 @@ batch_route <- function(df,
   # convert to sf dataframe for  batch routing  
   to_places <- df %>% 
     select(tract_str_end, lat_end, lon_end) %>%
-    st_as_sf(coords = c("end_long", "end_lat"),
+    st_as_sf(coords = c("lon_end", "lat_end"),
              crs = 4326)
   
   # because df has been split on tract, can select first start_lon, start_lat, and tract
@@ -174,28 +175,19 @@ route_date <- function(df, otpcon, date){
   return(routes)
 }
 
-calculate_routes <- function(date, df) {
+calculate_routes <- function(date, df, path_otp) {
   #date (str):Form YYYY-MM-DD hh:mm:ss, e.g. "2019-06-15 8:00:00"
   
-  ## Create folder for OTP and its Data + Download OTP ##
-  
-  path_data <- here("routing/otp")
-  dir.create(path_data)
-  # downloads open trip planner program
-  path_otp <- otp_dl_jar(path_data, cache =  FALSE)
-  #path_otp <- "C:/Users/astern/Documents/opentripplanner_dev/otp/otp-1.4.0-shaded.jar"
-  dir.create(here("routing/otp/graphs"))
-  
   #create folder for data and graph for given state
-  osm_path <- here(str_glue("otp/graphs/default"))
+  osm_path <- here(str_glue("routing/otp/graphs/default"))
   dir.create(osm_path)
   
   #TODO: update to download from s3?
   #download road and transit data into folder for given state
-  download_road_transit_data(state_name, transit_path, osm_path)
+  #download_road_transit_data(state_name, transit_path, osm_path)
   
   # Uses 8GB of memory
-  memory <- 8000
+  memory <- 12000
   
   # set up otp by creating configuration file, building graph and starting otp
   otpcon <- create_graph_setup_otp(path_data, path_otp, memory)
@@ -207,10 +199,19 @@ calculate_routes <- function(date, df) {
   return(routes)
 }
 
-df <- read_csv(route_pairs.csv, 
+df <- read_csv(here("routing/data", "route_pairs.csv"), 
                col_types = c("tract_str_start" = "character", 
                              "tract_str_end" = "character"))
 
-date_list <- c("2021-09-01 8:00:00")
+date_list <- c("2021-09-15 8:00:00")
 
-all_routes <- map_dfr(date_list, calculate_routes, df = df)
+df_sample <- df %>% sample_frac(size = .1)
+
+## Create folder for OTP and its Data + Download OTP ##
+path_data <- here("routing/otp")
+dir.create(path_data)
+# downloads open trip planner program
+path_otp <- otp_dl_jar(path_data, cache =  FALSE)
+dir.create(here("routing/otp/graphs"))
+
+all_routes <- map_dfr(date_list, calculate_routes, df = df_sample, path_otp = path_otp)

@@ -147,7 +147,7 @@ batch_route <- function(df,
   from_place <- c(from_lon, from_lat)
   
   
-  modes <- c("CAR", "TRANSIT")
+  modes <- c("CAR", c("TRANSIT", "WALK"))
   all_routes <- map_dfr(modes, 
                         create_otp_plan,
                         from_place = from_place, 

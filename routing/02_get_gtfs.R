@@ -88,3 +88,15 @@ map2(transit_agencies$agency_name,
      get_feed_date,
      api_key = api_key,
      date = as.Date("2020-02-16"))
+
+map2(transit_agencies$agency_name, 
+     transit_agencies$feed_key,
+     get_feed_date,
+     api_key = api_key,
+     date = as.Date("2020-02-12"))
+
+map2(transit_agencies$agency_name, 
+     transit_agencies$feed_key,
+     get_feed_date,
+     api_key = api_key,
+     date = as.Date("2021-09-15"))

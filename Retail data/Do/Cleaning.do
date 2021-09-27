@@ -10,6 +10,7 @@ global data "\\Ares\CTX_RedirectedFolders$\FHernandez\Desktop\ArlCo Food Insecur
 *Charitable food sites data uploading
 import delimited "${data}Food_resources.csv", bindquote(strict) clear 
 
+	gen charitable_food = 1
 	*dropping unnec vars
 	drop name email phone website registration_contact auto_unique_id source ///
 		timetaken updatedgeocod version error transaction ///
@@ -32,6 +33,7 @@ import delimited "${data}SNAP_Store_Locations_NOVA.csv", clear
 		featurematchingresulttypetiebrea featurematchinghierarchynotes ///
 		featurematchingresulttypenotes featurematchingresultcount zip4
 
+	gen charitable_food = 0
 	gen accepts_snap = 1
 	
 	ren (store_name address zip5) (location_name location_address zip_code)

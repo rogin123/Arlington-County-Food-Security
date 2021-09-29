@@ -229,7 +229,7 @@ df <- read_csv(here("routing/data", "route_pairs.csv"),
                              "geoid_end" = "character",
                              "geoid_start" = "character"))
 
-date_list <- c("2021-09-15 8:00:00", "2020-02-12 8:00:00")
+date_list <- c("2021-09-15 17:30:00", "2021-09-19 14:30:00")
 
 set.seed(1234)
 df_sample <- df %>% sample_frac(size = .1)

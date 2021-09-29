@@ -262,7 +262,7 @@ def interp_stop_times(sdata, fname):
             t_distance = int(exist_id["stop_sequence"].values[-1] - exist_id["stop_sequence"].values[-2])
             def_time = def_time_int / t_distance
             nvals = len(cur_id.index) - int(exist_id["stop_sequence"].values[-1])
-            mval = str(pd.to_timedelta(exist_id["arrival_time"].values[-1]) + dt.timedelta(minutes=def_time * nvals)).split("days ")[-1]
+            mval = str(pd.to_timedelta(exist_id["arrival_time"].values[-1]) + dt.timedelta(minutes=int(def_time * nvals))).split("days ")[-1]
         sdata["arrival_time"].loc[(sdata["stop_sequence"] == max_cur) & (sdata["trip_id"] == id)] = mval
         sdata["departure_time"].loc[(sdata["stop_sequence"] == max_cur) & (sdata["trip_id"] == id)] = mval
     sdata.to_csv(fname, index=False)

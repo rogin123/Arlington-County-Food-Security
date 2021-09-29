@@ -116,8 +116,9 @@ create_otp_plan <- function(mode, from_place, to_places, from_id, departure_time
 
 
 batch_route <- function(df, 
-                        otp_connection = otpcon, 
-                        departure_time = dt){
+                        otp_connection, 
+                        departure_time,
+                        mode){
   
   # Function to calculate a batch of driving routes between a single starting point (from_place) 
   # points to multiple destinations (to_places). Returns a dataframe with routing data including the following key fields:
@@ -160,7 +161,7 @@ batch_route <- function(df,
   
   
   #modes <- c("CAR", c("TRANSIT", "WALK"))
-  all_routes <- create_otp_plan(mode = c("TRANSIT", "WALK"),
+  all_routes <- create_otp_plan(mode = mode,
                         from_place = from_place, 
                         to_places = to_places, 
                         from_id = from_id,
@@ -172,7 +173,7 @@ batch_route <- function(df,
   return(all_routes)
 }
 
-route_date <- function(df, otpcon, date){
+route_date <- function(df, otpcon, date, mode){
   #date (str):Form YYYY-MM-DD hh:mm:ss, e.g. "2019-06-15 8:00:00"
   
   dt <- as.POSIXct(strptime(date, "%Y-%m-%d %H:%M:%S"), tz = "America/New_York")
@@ -182,7 +183,11 @@ route_date <- function(df, otpcon, date){
   
   #plan(multisession, workers = detectCores() - 1)
   # If a path cannot be found between the start and end point, the otp_plan will not return a row for that     start/end pair. Therefore, the dataframe returned by this function may be smaller than the input dataframe.
-  routes <- map_dfr(df_list, ~batch_route(.x, otpcon, dt))
+  routes <- map_dfr(df_list, 
+                    batch_route, 
+                    otp_connection = otpcon, 
+                    departure_time = dt, 
+                    mode = mode)
   
   return(routes)
 }
@@ -198,10 +203,9 @@ copy_road_transit_data <- function(router_name, osm_path){
             to = osm_path)
 }
 
-calculate_routes <- function(date, df, path_otp) {
-  #date (str):Form YYYY-MM-DD hh:mm:ss, e.g. "2019-06-15 8:00:00"
+calculate_routes <- function(departure_time, df, path_otp, mode, router_name) {
+  #departure_time (str):Form YYYY-MM-DD hh:mm:ss, e.g. "2019-06-15 8:00:00"
   
-  router_name <- substr(date, 1, 10)
   #create folder for data and graph for given state
   osm_path <- here(str_glue("routing/otp/graphs/{router_name}"))
   dir.create(osm_path)
@@ -216,7 +220,7 @@ calculate_routes <- function(date, df, path_otp) {
   # set up otp by creating configuration file, building graph and starting otp
   otpcon <- create_graph_setup_otp(path_data, path_otp, memory, router_name)
   
-  routes <- route_date(df, otpcon, date)
+  routes <- route_date(df, otpcon, departure_time, mode)
   
   otp_stop(warn = FALSE)
   
@@ -229,10 +233,12 @@ df <- read_csv(here("routing/data", "route_pairs.csv"),
                              "geoid_end" = "character",
                              "geoid_start" = "character"))
 
-date_list <- c("2021-09-15 17:30:00", "2021-09-19 14:30:00")
-
+# sample three times within ten minutes before or after time
 set.seed(1234)
-df_sample <- df %>% sample_frac(size = .1)
+sec_diff <- sample(-10:10, 3) * 60
+date <- c("2021-09-15 17:30:00", "2021-09-19 14:30:00")
+date_combo <- expand_grid(date, sec_diff)
+all_dates <- pmap(date_combo, function(date, sec_diff) as.character(as.POSIXct(date) + sec_diff))
 
 ## Create folder for OTP and its Data + Download OTP ##
 path_data <- here("routing/otp")
@@ -241,66 +247,27 @@ dir.create(path_data)
 path_otp <- otp_dl_jar(path_data, cache =  FALSE)
 dir.create(here("routing/otp/graphs"))
 
-all_routes_sept <- calculate_routes(date = "2021-09-15 8:00:00",
-                                    df = df_sample, 
-                                    path_otp = path_otp)
-write_csv(all_routes_sept, here("routing/data", "date_test_0921.csv"))
 
-all_routes_sept1 <- calculate_routes(date = "2021-09-15 8:05:00",
-                                    df = df_sample, 
-                                    path_otp = path_otp)
+all_routes_transit <- map_dfr(all_dates, 
+                              calculate_routes, 
+                              df = df, 
+                              path_otp = path_otp,
+                              mode = c("TRANSIT", "WALK"),
+                              router_name = "2021-09-15")
+write_csv(all_routes_transit_raw, here("routing/data", "all_routes_transit_raw.csv"))
 
-all_routes_sept2 <- calculate_routes(date = "2021-09-15 7:57:00",
-                                     df = df_sample, 
-                                     path_otp = path_otp)
+all_routes_transit_avg <- all_routes_transit %>%
+  mutate(date = substr(departure_time, 1, 10)) %>%
+  group_by(geoid_start, geoid_end, date) %>%
+  summarise(duration = mean(duration, na.rm = TRUE),
+            distance = mean(distance, na.rm = TRUE))
 
-all_routs_sept_addl <- map(c("2021-09-15 8:05:00", "2021-09-15 7:57:00"),
-                           calculate_routes,
-                           df = df_sample, 
-                           path_otp = path_otp) %>%
-  reduce(dplyr::left_join, by = c("geoid_start", "geoid_end"))
+write_csv(all_routes_transit_avg, here("routing/data", "all_routes_transit_final.csv"))
 
-all_routes_feb <- calculate_routes(date = "2020-02-12 8:00:00",
-                                    df = df_sample, 
-                                    path_otp = path_otp)
-write_csv(all_routes_feb, here("routing/data", "date_test_0220.csv"))
-
-all_routes_feb_addl <- map(c("2020-02-12 8:05:00", "2020-02-12 7:57:00"),
-                           calculate_routes,
-                           df = df_sample, 
-                           path_otp = path_otp) %>%
-  reduce(dplyr::left_join, by = c("geoid_start", "geoid_end"))
-
-all_routes_feb <- all_routes_feb %>%
-  left_join(all_routes_feb_addl, by = c("geoid_start", "geoid_end"))
-
-all_routes_feb <- all_routes_feb %>%
-  rowwise() %>%
-  mutate(avg_dur = mean(duration, duration.x, duration.y, na.rm = TRUE)) %>%
-  ungroup() %>%
-  select(geoid_start, geoid_end, avg_dur)
-
-all_routes_sept <- all_routes_sept %>%
-  left_join(all_routs_sept_addl, by = c("geoid_start", "geoid_end"))
-
-all_routes_sept <- all_routes_sept %>%
-  rowwise() %>%
-  mutate(avg_dur = mean(duration, duration.x, duration.y, na.rm = TRUE)) %>%
-  ungroup() %>%
-  select(geoid_start, geoid_end, avg_dur)
+all_routes_car <- calculate_routes(departure_time = "2021-09-15 17:30:00",
+                                   df = df,
+                                   path_otp = path_otp,
+                                   mode = c("CAR"))
 
 
-all_routes <- all_routes_feb %>%
-  left_join(all_routes_sept, 
-            by = c("geoid_start", "geoid_end"), 
-            suffix = c("_feb", "_sept")) %>%
-  mutate(dur_diff = (avg_dur_feb - avg_dur_sept) / 60)
 
-p <- ggplot(all_routes, aes(x=dur_diff)) + 
-  geom_histogram(color = "black",
-                 binwidth = 2) +
-  scale_x_continuous(name = "Time Difference (in minutes)", 
-                     breaks = c(-240, -60, -30, -15, 0, 
-                                15, 30, 60, 240))
-
-ggsave("dif_hist.png", plot = p, width = 10, height = 6)

@@ -14,7 +14,7 @@ get_latest_feed <- function(agency_name, feed_key, api_key){
                 mode = "wb")
 }
 
-get_feed_date <- function(agency_name, feed_key, api_key, date){
+get_feed_date <- function(agency_name, feed_key, api_key, date_start, date_end){
   feed_list_url <- str_glue("https://transit.land/api/v2/rest/feeds/{feed_key}/feed_versions?api_key={api_key}")
   feed_version_key <- NULL
   while (!is.null(feed_list_url) & is.null(feed_version_key)){
@@ -27,7 +27,7 @@ get_feed_date <- function(agency_name, feed_key, api_key, date){
     content <- content(r)
     feed_versions <- content$feed_versions
     for (fv in feed_versions){
-      if ((as.Date(fv$earliest_calendar_date) < (date - 2)) & (as.Date(fv$latest_calendar_date) > (date + 2))){
+      if ((as.Date(fv$earliest_calendar_date) < date_start) & (as.Date(fv$latest_calendar_date) > date_end)){
         feed_version_key <- fv$sha1
       }
       
@@ -37,7 +37,7 @@ get_feed_date <- function(agency_name, feed_key, api_key, date){
     if (!is.null(feed_version_key)){
       feed_url <- str_glue("https://transit.land/api/v2/rest/feed_versions/{feed_version_key}/download?api_key={api_key}")
       download.file(feed_url, 
-                    here("routing/data/gtfs-raw", str_glue("{agency_name}_{date}.gtfs.zip")), 
+                    here("routing/data/gtfs-raw", str_glue("{agency_name}_{date_start}.gtfs.zip")), 
                     mode = "wb")
     } else {
       feed_list_url <- content$meta[["next"]]
@@ -52,13 +52,13 @@ get_feed_date <- function(agency_name, feed_key, api_key, date){
 
 #Fairfax CUE
 #Charles County
-
-transit_agencies <- tribble(
-  ~agency_name, ~feed_key,
-"wmata_rail", "f-dqc-wmata~rail",
-"bethesda_circulator", "f-bethesdacirculator~md~us",
-"arlington_transit", "f-dqcjj-arlingtontransit"
-)
+# 
+# transit_agencies <- tribble(
+#   ~agency_name, ~feed_key,
+# "wmata_rail", "f-dqc-wmata~rail",
+# "bethesda_circulator", "f-bethesdacirculator~md~us",
+# "arlington_transit", "f-dqcjj-arlingtontransit"
+# )
 
 transit_agencies <- tribble(
   ~agency_name, ~feed_key,
@@ -78,25 +78,15 @@ transit_agencies <- tribble(
 
 
 
-map2(transit_agencies$agency_name, 
-     transit_agencies$feed_key, 
-     get_latest_feed, 
-     api_key = api_key)
+# map2(transit_agencies$agency_name, 
+#      transit_agencies$feed_key, 
+#      get_latest_feed, 
+#      api_key = api_key)
 
 map2(transit_agencies$agency_name, 
      transit_agencies$feed_key,
      get_feed_date,
      api_key = api_key,
-     date = as.Date("2020-02-16"))
+     date_start = as.Date("2021-09-15"),
+     date_end = as.Date("2021-09-19"))
 
-map2(transit_agencies$agency_name, 
-     transit_agencies$feed_key,
-     get_feed_date,
-     api_key = api_key,
-     date = as.Date("2020-02-12"))
-
-map2(transit_agencies$agency_name, 
-     transit_agencies$feed_key,
-     get_feed_date,
-     api_key = api_key,
-     date = as.Date("2021-09-15"))

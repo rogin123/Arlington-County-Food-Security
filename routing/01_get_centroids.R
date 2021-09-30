@@ -16,13 +16,30 @@ centroids_all <- read_csv(here("routing/data", "geocorr_centroids.csv")) %>%
   mutate(lat = as.numeric(lat),
          lon = as.numeric(lon))
 
+# read in food sites to subset to tracts with food sites
+food_sites <- read_dta(here("Retail data", "food_stores_data.dta")) %>%
+  st_as_sf(coords = c("longitude", "latitude")) %>%
+  st_set_crs(4269)
+
+va_tract <- tracts(state = "51")
+md_tract <- tracts(state = "24")
+dc_tract <- tracts(state = "11")
+all_tract <- rbind(va_tract, md_tract, dc_tract)
+
+tract_food <- st_join(all_tracts, food_sites, join = st_intersects) 
+unique_tract <- tract_food %>%
+  filter(!is.na(objectid)) %>%
+  pull(GEOID) %>%
+  unique()
+
+centroids_food <- centroids_all %>%
+  filter(geoid %in% unique_tract)
 
 centroids_arl <- centroids_all %>%
   filter(cntyname == "Arlington VA")
 
-
 route_pairs <- st_join(centroids_arl,
-                       centroids_all, 
+                       centroids_food, 
                        join = st_is_within_distance,
                        #30 miles is 48,280 meters
                        dist = 25000,

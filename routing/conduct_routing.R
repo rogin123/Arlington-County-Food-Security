@@ -5,6 +5,10 @@ library(parallel)
 library(sf)
 library(furrr)
 
+#TODO
+# don't route same to same
+# impute mode and time for routes that can't be found
+
 make_config <- function(path_data, router_name){
   # Make router config with default parameters. You can edit these parameters if desired as described in 
   # (https://docs.ropensci.org/opentripplanner/articles/advanced_features.html#configuring-opentripplanner-1)
@@ -89,15 +93,19 @@ create_otp_plan <- function(mode_out, from_place, to_places, from_id, departure_
       select(duration, distance, geoid_start = fromPlace, geoid_end = toPlace) %>%
       group_by(geoid_start, geoid_end) %>%
       #duration value should be same across all legs
-      summarise(duration = max(duration, na.rm = TRUE), 
-                distance = sum(distance, na.rm = TRUE)) %>%
+      #convert seconds to minutes
+      summarise(duration = round( max(duration, na.rm = TRUE)/60, 3), 
+                # convert meters to miles
+                distance = round( sum(distance, na.rm = TRUE)*6.21371e-4, 3)) %>%
       mutate(mode = mode_out,
              departure_time = departure_time) 
     
     routes_out <- to_places %>%
       st_drop_geometry() %>%
       left_join(routes_out, by = "geoid_end") %>%
-      replace_na(list(geoid_start = from_id))
+      replace_na(list(geoid_start = from_id,
+                      mode = mode_out,
+                      departure_time = departure_time))
   } else {
     # if no routes can be found for a given start point, will return one row with the following:
     routes_out <- tibble(

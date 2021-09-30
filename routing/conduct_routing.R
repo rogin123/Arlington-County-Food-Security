@@ -52,12 +52,12 @@ create_graph_setup_otp <- function(path_data, path_otp, memory, router_name){
   return(otpcon)
 }
 
-create_otp_plan <- function(mode, from_place, to_places, from_id, departure_time, otp_connection){
+create_otp_plan <- function(mode_out, from_place, to_places, from_id, departure_time, otp_connection){
   # Conducts batch routing for provided transportation mode transportation mode
   
   #Identifies number of cores for batch routing
   n_cores = detectCores() - 1
-  mode_out <- ifelse(length(mode) > 1, "TRANSIT", "CAR")
+  mode <- ifelse(mode_out == "TRANSIT", c("WALK", "TRANSIT"), c("CAR"))
   
   print(mode_out)
   
@@ -247,14 +247,15 @@ dir.create(path_data)
 path_otp <- otp_dl_jar(path_data, cache =  FALSE)
 dir.create(here("routing/otp/graphs"))
 
+all_dates <- c(all_dates[[1]])
 
 all_routes_transit <- map_dfr(all_dates, 
                               calculate_routes, 
                               df = df, 
                               path_otp = path_otp,
-                              mode = c("TRANSIT", "WALK"),
+                              mode = "TRANSIT",
                               router_name = "2021-09-15")
-write_csv(all_routes_transit_raw, here("routing/data", "all_routes_transit_raw.csv"))
+write_csv(all_routes_transit, here("routing/data", "all_routes_transit_raw.csv"))
 
 all_routes_transit_avg <- all_routes_transit %>%
   mutate(date = substr(departure_time, 1, 10)) %>%

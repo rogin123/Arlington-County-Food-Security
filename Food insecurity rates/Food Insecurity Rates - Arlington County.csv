@@ -56,5 +56,5 @@ geography,GEOID,tractce,state,percent_food_insecure,number_food_insecure,total_p
 "Census Tract 1036.02, Arlington County, Virginia",51013103602,103602,VA,0.142,170,"1,223",0.024,0.151,0.088,0.217,"81,328",0.009,0.041,0,0,0,0,0,0,0
 "Census Tract 1037, Arlington County, Virginia",51013103700,103700,VA,0.03,80,"2,616",0.019,0.024,0.037,0.131,"200,515",0.883,0.086,0,0,0,0,0,0,0
 "Census Tract 1038, Arlington County, Virginia",51013103800,103800,VA,0.103,520,"5,027",0.042,0.088,0.243,0.157,"91,181",0.244,0.044,0,0,0,0,0,0,0
-"Census Tract 9801, Arlington County, Virginia",51013980100,980100,VA,.,.,0,.,.,.,.,.,.,.,1,1,1,0,0,1,1
-"Census Tract 9802, Arlington County, Virginia",51013980200,980200,VA,.,.,4,0,0,0,0,.,0,0,1,1,1,0,0,0,0
+"Census Tract 9801, Arlington County, Virginia",51013980100,980100,VA,,,0,,,,,,,,1,1,1,0,0,1,1
+"Census Tract 9802, Arlington County, Virginia",51013980200,980200,VA,,,4,0,0,0,0,,0,0,1,1,1,0,0,0,0

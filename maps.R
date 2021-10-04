@@ -100,6 +100,13 @@ setwd("C:/Users/FHernandez/Desktop/Arlington County Food Security/Quantitative A
     crs = 4269) %>% 
     st_transform(crs = 6487)
   
+  fs <- read.csv("https://raw.githubusercontent.com/fhernandez-urban/Arlington-County-Food-Security/main/Food%20insecurity%20rates/Food%20Insecurity%20Rates%20-%20Arlington%20County.csv")
+
+  fs_mfi <- read.csv("https://raw.githubusercontent.com/fhernandez-urban/Arlington-County-Food-Security/main/Food%20insecurity%20rates/Food%20Insecurity%20Rates%20-%20Arlington%20County%20-%20MFI.csv")  
+  
+  acs_fs <- merge(wide_acs, fs, all=F)
+  acs_fsmfi <- merge(wide_acs, fs_mfi, all=F)
+  
 set_urbn_defaults(style = "map")
 urban_colors <- c("#cfe8f3", "#a2d4ec", "#73bfe2", "#46abdb", "#1696d2", "#12719e", "#0a4c6a", "#062635")
 
@@ -194,3 +201,18 @@ plot4 <-wide_acs %>%
     scale_fill_gradientn(name = "Percent with internet access", colours = urban_colors) +
     geom_sf(data = foodsites, mapping = aes(color =type), size = 1, show.legend = "point", inherit.aes = F)
   ggsave("Final Maps/pct_incrent.png", height = 6, width = 12, units = "in", dpi = 500)
+
+  ##FS MFI
+  ggplot() +
+    geom_sf(data=acs_fs, aes(fill = percent_food_insecure)) +
+    scale_fill_gradientn(name = "Percent with internet access", colours = urban_colors) +
+    geom_sf(data = foodsites, mapping = aes(color =type), size = 1, show.legend = "point", inherit.aes = F)
+  ggsave("Final Maps/pct_fs.png", height = 6, width = 12, units = "in", dpi = 500)
+  
+  ##Rent to income ratio (35% or greater)
+  ggplot() +
+    geom_sf(data=acs_fsmfi, aes(fill = percent_food_insecure))+
+    scale_fill_gradientn(name = "Percent with internet access", colours = urban_colors) +
+    geom_sf(data = foodsites, mapping = aes(color =type), size = 1, show.legend = "point", inherit.aes = F)
+  ggsave("Final Maps/pct_fs_mfi.png", height = 6, width = 12, units = "in", dpi = 500)
+  

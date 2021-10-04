@@ -149,34 +149,48 @@ plot4 <-wide_acs %>%
   ## PCT Black
   ggplot() +
   geom_sf(data=wide_acs, aes(fill = pct_nlblack))+
-  scale_fill_gradientn(name = "Percent White population", colours = urban_colors) +
-  geom_sf(data = foodsites, mapping = aes(color =type), size = .4, show.legend = "point", inherit.aes = F)
+  scale_fill_gradientn(name = "Percent Black population", colours = urban_colors) +
+  geom_sf(data = foodsites, mapping = aes(color =type), size = 1, show.legend = "point", inherit.aes = F)
   ggsave("Final Maps/pct_nlblack.png", height = 6, width = 12, units = "in", dpi = 500)
 
   ## PCT Asian
   ggplot() +
   geom_sf(data=wide_acs, aes(fill = pct_nlasian))+
-  scale_fill_gradientn(name = "Percent White population", colours = urban_colors) +
-  geom_sf(data = foodsites, mapping = aes(color =type), size = .4, show.legend = "point", inherit.aes = F) 
+  scale_fill_gradientn(name = "Percent Asian population", colours = urban_colors) +
+  geom_sf(data = foodsites, mapping = aes(color =type), size = 1, show.legend = "point", inherit.aes = F) 
   ggsave("Final Maps/pct_nlasian.png", height = 6, width = 12, units = "in", dpi = 500)
   
   ## PCT Latine
   ggplot() +
   geom_sf(data=wide_acs, aes(fill = pct_latine))+
-  scale_fill_gradientn(name = "Percent White population", colours = urban_colors) +
-  geom_sf(data = foodsites, mapping = aes(color =type), size = .4, show.legend = "point", inherit.aes = F)
+  scale_fill_gradientn(name = "Percent Latine population", colours = urban_colors) +
+  geom_sf(data = foodsites, mapping = aes(color =type), size = 1, show.legend = "point", inherit.aes = F)
   ggsave("Final Maps/pct_latine.png", height = 6, width = 12, units = "in", dpi = 500)
   
   ## Median income
   ggplot() +
     geom_sf(data=wide_acs, aes(fill = medhhinc))+
-    scale_fill_gradientn(name = "Percent White population", colours = urban_colors) +
-    geom_sf(data = foodsites, mapping = aes(color =type), size = .4, show.legend = "point", inherit.aes = F)
+    scale_fill_gradientn(name = "Median HH income (2019 dollars)", colours = urban_colors) +
+    geom_sf(data = foodsites, mapping = aes(color =type), size = 1, show.legend = "point", inherit.aes = F)
   ggsave("Final Maps/pct_medhhinc.png", height = 6, width = 12, units = "in", dpi = 500)
   
   ##185 pov rate
   ggplot() +
     geom_sf(data=wide_acs, aes(fill = pct_185pov))+
-    scale_fill_gradientn(name = "Percent White population", colours = urban_colors) +
-    geom_sf(data = foodsites, mapping = aes(color =type), size = .4, show.legend = "point", inherit.aes = F)
+    scale_fill_gradientn(name = "Percent population under 185% poverty rate", colours = urban_colors) +
+    geom_sf(data = foodsites, mapping = aes(color =type), size = 1, show.legend = "point", inherit.aes = F)
   ggsave("Final Maps/pct_185pov.png", height = 6, width = 12, units = "in", dpi = 500)
+  
+  ##Internet
+  ggplot() +
+    geom_sf(data=wide_acs, aes(fill = pct_inetaccess))+
+    scale_fill_gradientn(name = "Percent with internet access", colours = urban_colors) +
+    geom_sf(data = foodsites, mapping = aes(color =type), size = 1, show.legend = "point", inherit.aes = F)
+  ggsave("Final Maps/pct_185pov.png", height = 6, width = 12, units = "in", dpi = 500)
+  
+  ##Rent to income ratio (35% or greater)
+  ggplot() +
+    geom_sf(data=wide_acs, aes(fill = pct_incrent35))+
+    scale_fill_gradientn(name = "Percent with internet access", colours = urban_colors) +
+    geom_sf(data = foodsites, mapping = aes(color =type), size = 1, show.legend = "point", inherit.aes = F)
+  ggsave("Final Maps/pct_incrent.png", height = 6, width = 12, units = "in", dpi = 500)

@@ -1,11 +1,18 @@
 library(tidyverse)
 library(tidycensus)
 library(haven)
-source("analysis_functions.R")
+library(here)
+library(sf)
+source("routing/analysis_functions.R")
 
 routes <- read_csv(here("routing/data", "all_routes_transit_raw.csv"),
                    col_types = c("geoid_start" = "character",
-                                 "geoid_end" = "character"))
+                                 "geoid_end" = "character")) %>%
+  # calculate adjusted duration by multiplying car trips by the 
+  # 2019 ratio of INRIX off-peak speed (32) and peak speed (18) for Washington DC
+  # https://inrix.com/scorecard-city/?city=Washington%20DC&index=89
+  mutate(duration_adj = ifelse(mode == "CAR" & date == "2021-09-15", duration * 1.78, duration))
+
 routes_arl <- routes %>%
   filter(substr(geoid_end, 1, 5) == "51013")
 acs <- read_process_acs()

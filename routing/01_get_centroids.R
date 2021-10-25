@@ -17,7 +17,11 @@ centroids_all <- read_csv(here("routing/data", "geocorr_centroids.csv")) %>%
          lon = as.numeric(lon))
 
 # read in food sites to subset to tracts with food sites
-food_sites <- read_dta(here("Retail data", "food_stores_data.dta")) %>%
+# food_sites <- read_dta(here("Retail data", "food_stores_data.dta")) %>%
+#   st_as_sf(coords = c("longitude", "latitude")) %>%
+#   st_set_crs(4269)
+
+food_sites <- read_csv(here("Final food data", "Food_retailers_TRANSPORT.csv")) %>%
   st_as_sf(coords = c("longitude", "latitude")) %>%
   st_set_crs(4269)
 
@@ -26,7 +30,7 @@ md_tract <- tracts(state = "24")
 dc_tract <- tracts(state = "11")
 all_tract <- rbind(va_tract, md_tract, dc_tract)
 
-tract_food <- st_join(all_tracts, food_sites, join = st_intersects) 
+tract_food <- st_join(all_tract, food_sites, join = st_intersects) 
 unique_tract <- tract_food %>%
   filter(!is.na(objectid)) %>%
   pull(GEOID) %>%
@@ -36,7 +40,10 @@ centroids_food <- centroids_all %>%
   filter(geoid %in% unique_tract)
 
 centroids_arl <- centroids_all %>%
-  filter(cntyname == "Arlington VA")
+  # exclude two tracts with zero population and tract from analysis and 
+  # tract inside Joint Base Myer-Henderson Hall as OTP fails to find any routes 
+  # due to lack of public access
+  filter(cntyname == "Arlington VA" & !(tract %in% c("9801.00", "9802.00", "1034.01")))
 
 route_pairs <- st_join(centroids_arl,
                        centroids_food, 
@@ -49,6 +56,8 @@ route_out <- route_pairs
 st_geometry(route_out) <- NULL
 write_csv(route_out, here("routing/data", "route_pairs.csv"))
   
+route_out <- route_out %>%
+  mutate(state_end = substr(geoid_end, 1, 2))
 
 va <- counties(state = "51")
 md <- counties(state = "24")

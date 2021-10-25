@@ -63,8 +63,6 @@ create_otp_plan <- function(mode_out, from_place, to_places, from_id, departure_
   n_cores = detectCores() - 1
   mode <- ifelse(mode_out == "TRANSIT", c("WALK", "TRANSIT"), c("CAR"))
   
-  print(mode_out)
-  
   routes <- tryCatch(
     {routes <- otp_plan(otp_connection, 
                         fromPlace = from_place, 
@@ -181,15 +179,11 @@ batch_route <- function(df,
   return(all_routes)
 }
 
-route_date <- function(df, otpcon, date, mode){
+route_date <- function(date, df_list, otpcon, mode){
   #date (str):Form YYYY-MM-DD hh:mm:ss, e.g. "2019-06-15 8:00:00"
   
   dt <- as.POSIXct(strptime(date, "%Y-%m-%d %H:%M:%S"), tz = "America/New_York")
   
-  #split dataframe into a list of dataframes on county
-  df_list <- split(df, f = df$geoid_start)
-  
-  #plan(multisession, workers = detectCores() - 1)
   # If a path cannot be found between the start and end point, the otp_plan will not return a row for that     start/end pair. Therefore, the dataframe returned by this function may be smaller than the input dataframe.
   routes <- map_dfr(df_list, 
                     batch_route, 
@@ -211,58 +205,58 @@ copy_road_transit_data <- function(router_name, osm_path){
             to = osm_path)
 }
 
-calculate_routes <- function(departure_time, df, path_otp, mode, router_name) {
-  #departure_time (str):Form YYYY-MM-DD hh:mm:ss, e.g. "2019-06-15 8:00:00"
-  
-  #create folder for data and graph for given state
-  osm_path <- here(str_glue("routing/otp/graphs/{router_name}"))
-  dir.create(osm_path)
-  
-  #TODO: update to download from s3?
-  #download road and transit data into folder for given state
-  copy_road_transit_data(router_name, osm_path)
-  
-  # Uses 8GB of memory
-  memory <- 12000
-  
-  # set up otp by creating configuration file, building graph and starting otp
-  otpcon <- create_graph_setup_otp(path_data, path_otp, memory, router_name)
-  
-  routes <- route_date(df, otpcon, departure_time, mode)
-  
-  otp_stop(warn = FALSE)
-  
-  return(routes)
-}
-
 df <- read_csv(here("routing/data", "route_pairs.csv"), 
                col_types = c("tract_str_start" = "character", 
                              "tract_str_end" = "character",
                              "geoid_end" = "character",
-                             "geoid_start" = "character"))
+                             "geoid_start" = "character"),
+               lazy = FALSE) %>%
+  # remove routes where start and end point is the same, we assume
+  # 0 time for these
+  filter(geoid_start != geoid_end)
+
+
+
 
 # sample three times within ten minutes before or after time
 set.seed(1234)
 sec_diff <- sample(-10:10, 3) * 60
 date <- c("2021-09-15 17:30:00", "2021-09-19 14:30:00")
 date_combo <- expand_grid(date, sec_diff)
-all_dates <- pmap(date_combo, function(date, sec_diff) as.character(as.POSIXct(date) + sec_diff))
+all_dates <- unlist(pmap(date_combo, function(date, sec_diff) as.character(as.POSIXct(date) + sec_diff)))
 
 ## Create folder for OTP and its Data + Download OTP ##
 path_data <- here("routing/otp")
 dir.create(path_data)
+
 # downloads open trip planner program
 path_otp <- otp_dl_jar(path_data, cache =  FALSE)
 dir.create(here("routing/otp/graphs"))
 
-all_dates <- c(all_dates[[1]])
+#create folder for data and graph for given state
+osm_path <- here(str_glue("routing/otp/graphs/{router_name}"))
+dir.create(osm_path)
 
+#download road and transit data into folder for given state
+router_name <-  "2021-09-15"
+copy_road_transit_data(router_name, osm_path)
+
+# Uses 8GB of memory
+memory <- 12000
+
+# set up otp by creating configuration file, building graph and starting otp
+otpcon <- create_graph_setup_otp(path_data, path_otp, memory, router_name)
+
+#split dataframe into a list of dataframes on start tract geoid
+df_list <- split(df, f = df$geoid_start)
+
+#TODO: Are we not accounting for wait time?
 all_routes_transit <- map_dfr(all_dates, 
-                              calculate_routes, 
-                              df = df, 
-                              path_otp = path_otp,
-                              mode = "TRANSIT",
-                              router_name = "2021-09-15")
+                              route_date, 
+                              df_list = df_list, 
+                              otpcon = otpcon,
+                              mode = "TRANSIT")
+                              
 write_csv(all_routes_transit, here("routing/data", "all_routes_transit_raw.csv"))
 
 all_routes_transit_avg <- all_routes_transit %>%
@@ -278,5 +272,4 @@ all_routes_car <- calculate_routes(departure_time = "2021-09-15 17:30:00",
                                    path_otp = path_otp,
                                    mode = c("CAR"))
 
-
-
+otp_stop(warn = FALSE)

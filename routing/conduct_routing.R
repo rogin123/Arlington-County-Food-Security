@@ -4,6 +4,7 @@ library(here)
 library(parallel)
 library(sf)
 library(furrr)
+library(testit)
 
 #TODO
 # don't route same to same
@@ -14,6 +15,8 @@ make_config <- function(path_data, router_name){
   # (https://docs.ropensci.org/opentripplanner/articles/advanced_features.html#configuring-opentripplanner-1)
   # 
   router_config <- otp_make_config("router")
+  router_config$routingDefaults$waitAtBeginningFactor <- 0.5
+  assert("config is valid", otp_validate_config(router_config))
   otp_write_config(router_config,                
                    dir = path_data,
                    router = router_name)
@@ -61,7 +64,11 @@ create_otp_plan <- function(mode_out, from_place, to_places, from_id, departure_
   
   #Identifies number of cores for batch routing
   n_cores = detectCores() - 1
-  mode <- ifelse(mode_out == "TRANSIT", c("WALK", "TRANSIT"), c("CAR"))
+  if (mode_out == "TRANSIT") {
+    mode_route <- c("WALK", "TRANSIT")
+  } else {
+    mode_route <- c("CAR")
+  } 
   
   routes <- tryCatch(
     {routes <- otp_plan(otp_connection, 
@@ -69,7 +76,7 @@ create_otp_plan <- function(mode_out, from_place, to_places, from_id, departure_
                         toPlace = to_places,
                         fromID = from_id,
                         toID = to_places$geoid_end,
-                        mode = mode,
+                        mode = mode_route,
                         get_geometry = FALSE, #can change to true if want geometry of driving route
                         numItineraries = 1, #only returns single fastest itinerary
                         ncores = n_cores,
@@ -88,11 +95,17 @@ create_otp_plan <- function(mode_out, from_place, to_places, from_id, departure_
   
   if (!is.na(routes)){
     routes_out <- routes %>%
-      select(duration, distance, geoid_start = fromPlace, geoid_end = toPlace) %>%
+      select(duration, distance, geoid_start = fromPlace, geoid_end = toPlace, startTime) %>%
       group_by(geoid_start, geoid_end) %>%
       #duration value should be same across all legs
+      mutate(
+        startTime = as.POSIXct(startTime),
+        start_wait = startTime - as.POSIXct(departure_time),
+        adj_duration = duration + start_wait * 0.5
+        ) %>%
       #convert seconds to minutes
       summarise(duration = round( max(duration, na.rm = TRUE)/60, 3), 
+                adj_duration = round( max(adj_duration, na.rm = TRUE)/60, 3), 
                 # convert meters to miles
                 distance = round( sum(distance, na.rm = TRUE)*6.21371e-4, 3)) %>%
       mutate(mode = mode_out,
@@ -108,6 +121,7 @@ create_otp_plan <- function(mode_out, from_place, to_places, from_id, departure_
     # if no routes can be found for a given start point, will return one row with the following:
     routes_out <- tibble(
       duration = NA_real_, 
+      adj_duration = NA_real_,
       distance = NA_real_, 
       geoid_start = from_id, 
       geoid_end = to_places$geoid_end,
@@ -167,7 +181,7 @@ batch_route <- function(df,
   
   
   #modes <- c("CAR", c("TRANSIT", "WALK"))
-  all_routes <- create_otp_plan(mode = mode,
+  all_routes <- create_otp_plan(mode_out = mode,
                         from_place = from_place, 
                         to_places = to_places, 
                         from_id = from_id,
@@ -225,6 +239,9 @@ date <- c("2021-09-15 17:30:00", "2021-09-19 14:30:00")
 date_combo <- expand_grid(date, sec_diff)
 all_dates <- unlist(pmap(date_combo, function(date, sec_diff) as.character(as.POSIXct(date) + sec_diff)))
 
+#for testing
+#all_dates <- all_dates[1:2]
+
 ## Create folder for OTP and its Data + Download OTP ##
 path_data <- here("routing/otp")
 dir.create(path_data)
@@ -249,8 +266,9 @@ otpcon <- create_graph_setup_otp(path_data, path_otp, memory, router_name)
 
 #split dataframe into a list of dataframes on start tract geoid
 df_list <- split(df, f = df$geoid_start)
+# for testing
+#df_list <- df_list[1:3]
 
-#TODO: Are we not accounting for wait time?
 all_routes_transit <- map_dfr(all_dates, 
                               route_date, 
                               df_list = df_list, 
@@ -263,13 +281,17 @@ all_routes_transit_avg <- all_routes_transit %>%
   mutate(date = substr(departure_time, 1, 10)) %>%
   group_by(geoid_start, geoid_end, date) %>%
   summarise(duration = mean(duration, na.rm = TRUE),
+            adj_duration = mean(adj_duration, na.rm = TRUE),
             distance = mean(distance, na.rm = TRUE))
 
 write_csv(all_routes_transit_avg, here("routing/data", "all_routes_transit_final.csv"))
 
-all_routes_car <- calculate_routes(departure_time = "2021-09-15 17:30:00",
-                                   df = df,
-                                   path_otp = path_otp,
-                                   mode = c("CAR"))
+all_routes_car <- route_date(date = "2021-09-15 17:30:00",
+                             df_list = df_list, 
+                             otpcon = otpcon,
+                             mode = "CAR")
+
+write_csv(all_routes_car, here("routing/data", "all_routes_car_final.csv"))
+
 
 otp_stop(warn = FALSE)

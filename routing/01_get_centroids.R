@@ -26,18 +26,22 @@ food_sites <- read_csv(here("Final food data", "Food_retailers_TRANSPORT.csv")) 
   st_set_crs(4269)
 
 va_tract <- tracts(state = "51")
-md_tract <- tracts(state = "24")
-dc_tract <- tracts(state = "11")
-all_tract <- rbind(va_tract, md_tract, dc_tract)
+# md_tract <- tracts(state = "24")
+# dc_tract <- tracts(state = "11")
+# all_tract <- rbind(va_tract, md_tract, dc_tract)
 
-tract_food <- st_join(all_tract, food_sites, join = st_intersects) 
+tract_food <- st_join(va_tract, food_sites, join = st_intersects) 
 unique_tract <- tract_food %>%
   filter(!is.na(objectid)) %>%
   pull(GEOID) %>%
   unique()
 
+# centroids_food <- centroids_all %>%
+#   filter(geoid %in% unique_tract)
+
+# Route to all tracts in arlington, alexandria, and fairfax
 centroids_food <- centroids_all %>%
-  filter(geoid %in% unique_tract)
+  filter(cntyname %in% c("Arlington VA", "Alexandria city VA", "Fairfax VA"))
 
 centroids_arl <- centroids_all %>%
   # exclude two tracts with zero population and tract from analysis and 

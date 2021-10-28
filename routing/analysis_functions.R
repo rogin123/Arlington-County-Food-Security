@@ -7,7 +7,14 @@ read_process_acs <- function() {
                               "DP04_0001", "B03003_003", "B02001_005", "C17002_001",
                               "C17002_002", "C17002_003", "DP04_0058P",
                               "B08201_001", "B08201_002", "B23025_005",
-                              "S0801_C01_001", "S0801_C01_002"),
+                              "S0801_C01_001", "S0801_C01_002",
+                              "B01001_003", "B01001_004", "B01001_005",
+                              "B01001_006", "B01001_020", "B01001_021",
+                              "B01001_022", "B01001_023", "B01001_024",
+                              "B01001_025", "B01001_027", "B01001_028",
+                              "B01001_029", "B01001_030", "B01001_044",
+                              "B01001_045", "B01001_046", "B01001_047",
+                              "B01001_048", "B01001_049"),
                 geometry = TRUE)
   
   wide_acs <- acs %>% select(-moe) %>% 
@@ -31,19 +38,28 @@ read_process_acs <- function() {
            pct_white = white / total_pop,
            pct_hispanic = hispanic / total_pop,
            pct_asian = asian / total_pop,
-           pct_own_car = (total_hh_car - no_cars) / total_hh_car)
+           pct_own_car = (total_hh_car - no_cars) / total_hh_car,
+           num_children = B01001_003 + B01001_004 + B01001_005 + B01001_006 +
+             B01001_027 + B01001_028 + B01001_029 + B01001_030,
+           num_senior = B01001_020 + B01001_021 + B01001_022 + B01001_023 +
+             B01001_024 + B01001_025 + B01001_044 + B01001_045 + B01001_046 +
+             B01001_047 + B01001_048 + B01001_049) %>%
+    select(-starts_with("B01001"))
   
   return(wide_acs)
 }
 
 
-travel_time_to_closest <- function(all_data, food_type) {
+travel_time_to_closest <- function(all_data, 
+                                   food_type, 
+                                   dur_type,
+                                   route_date) {
   
   time_to_closest <- all_data %>%
     # need to update based on data stucture
-    filter({{ food_type }} == 1) %>%
+    filter({{ food_type }} > 0, date == route_date) %>%
     group_by(geoid_start) %>%
-    summarise(min_duration = min(duration, na.rm = TRUE))
+    summarise(min_duration = min({{ dur_type }}, na.rm = TRUE))
   
   return(time_to_closest)
 }
@@ -71,11 +87,15 @@ map_time_to_closest <- function(){
 }
 
 
-count_accessible_within_t <- function(all_data, food_type, t) {
+count_accessible_within_t <- function(all_data, 
+                                      food_type, 
+                                      dur_type, 
+                                      t, 
+                                      route_date) {
   count_within_t <- all_data %>%
-    filter({{ food_type }} == 1, duration <= t) %>%
+    filter({{ food_type }} > 15, {{ dur_type }} <= t, date == route_date) %>%
     group_by(geoid_start) %>%
-    summarise(count = n())
+    summarise(count = sum( {{ food_type }} ))
   
 
   return(count_within_t)

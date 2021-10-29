@@ -64,24 +64,27 @@ travel_time_to_closest <- function(all_data,
   return(time_to_closest)
 }
 
-map_time_to_closest <- function(){
+map_time_to_closest <- function(county_shp, ttc, opp){
 
-  avg_schools <- left_join(county_shp, 
-                           avg_schools, 
-                           by = c("GEOID" = "start"))
+  ttc_shp <- left_join(county_shp, 
+                           ttc, 
+                           by = c("GEOID" = "geoid_start"))
+  
+  opp_formatted <- gsub("\ ", "_", tolower(opp))
   
   set_urbn_defaults(style = "map")
-  urban_colors <- rev(c("#cfe8f3", "#a2d4ec", "#73bfe2", "#46abdb", "#1696d2", "#12719e", "#0a4c6a", "#062635"))
+  urban_colors <- c("#cfe8f3", "#a2d4ec", "#73bfe2", "#46abdb", "#1696d2", "#12719e", "#0a4c6a", "#062635")
   
   time_to_closest <- ggplot() +
-    geom_sf(data = avg_schools, mapping = aes(fill = min_duration)) +
+    geom_sf(data = ttc_shp, mapping = aes(fill = min_duration)) +
     scale_fill_gradientn(colours = urban_colors) +
-    labs(title = str_glue("Travel Time to Closest {opp}\nby {mode} in {city}"), 
+    labs(title = str_glue("Weighted Travel Time to Closest {opp}\n in Arlington County "), 
          fill = "Time (minutes)") +
-    guides(fill = guide_colourbar(barheight = 8)) +
+    guides(fill = guide_colourbar(barheight = 8)) 
     #theme(legend.text = element_text(size = 6) +
-    ggsave(here("../access-analysis/images", 
-                paste(city, "time_to_closest.png", sep = "_")))
+    ggsave(plot = time_to_closest,
+           filename = here("routing/images", 
+                str_glue("time_to_closest_{opp_formatted}.png")))
   
   return(time_to_closest)
 }
@@ -93,7 +96,7 @@ count_accessible_within_t <- function(all_data,
                                       t, 
                                       route_date) {
   count_within_t <- all_data %>%
-    filter({{ food_type }} > 15, {{ dur_type }} <= t, date == route_date) %>%
+    filter({{ food_type }} > 0, {{ dur_type }} <= t, date == route_date) %>%
     group_by(geoid_start) %>%
     summarise(count = sum( {{ food_type }} ))
   

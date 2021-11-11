@@ -147,7 +147,7 @@ road <- roads(state = "Virginia", county = "013")
 
 #function to make demographic map
 
-map_demographic <-  function (data1 = wide_acs,data2=foodsites2, percent_variable = "pct_latine", title){
+map_demographic <-  function (data1 = wide_acs,data2=foodsites2, percent_variable = "pct_latine", title = "Percent Latine Population"){
   percent_variable <- rlang::sym(percent_variable)
   plot <- ggplot() +
     geom_sf(data=data1, aes(fill = !!percent_variable), color = "grey")+

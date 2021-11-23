@@ -1,0 +1,37 @@
+---
+title: "ArCo Maps"
+author: "Amy Rogin"
+date: "11/19/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(dev = "cairo_pdf")
+```
+
+
+```{r cars}
+source(maps.R)
+```
+
+
+
+```{r pressure, echo=FALSE}
+# get road shapefle
+road <- roads(state = "Virginia", county = "013")
+ggplot() +
+  geom_sf(acs_ficombo,mapping = aes(fill = FI), color = "gray") +
+  geom_sf(data = road,
+          color="grey", fill="white", size=0.25, alpha =.5)+
+  scale_fill_gradientn(colours = urban_colors, name = "Food insecurity rate", labels = percent, 
+                       limits = c(0,.15) ,breaks=c(0, .05, .10, .15))+
+  geom_sf(data = charitable_fullaccess,mapping = aes(color = location_type),size = 2.5, 
+          show.legend = "point", inherit.aes = F) +
+  scale_color_manual(name = NULL, values = "#fdbf11")+
+  theme(legend.position = "right", 
+        legend.box = "vertical", 
+        legend.key.size = unit(1, "cm"), 
+        legend.title = element_text(size=14), #change legend title font size
+        legend.text = element_text(size=14)) #change legend text font size)
+```
